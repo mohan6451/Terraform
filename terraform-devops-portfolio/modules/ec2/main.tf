@@ -43,8 +43,7 @@ resource "aws_instance" "master" {
     # Install K3s server
     curl -sfL https://get.k3s.io | sh -s - server \
       --write-kubeconfig-mode 644 \
-      --tls-san ${self.public_ip}
-
+      --tls-san $(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
     # Wait for node-token to be generated
     until [ -f /var/lib/rancher/k3s/server/node-token ]; do sleep 2; done
 
@@ -60,7 +59,7 @@ resource "aws_instance" "master" {
 
   root_block_device {
     volume_type = "gp3"
-    volume_size = 20
+    volume_size = 40
     encrypted   = true
   }
 
@@ -107,7 +106,7 @@ resource "aws_instance" "worker" {
 
   root_block_device {
     volume_type = "gp3"
-    volume_size = 20
+    volume_size = 30
     encrypted   = true
   }
 

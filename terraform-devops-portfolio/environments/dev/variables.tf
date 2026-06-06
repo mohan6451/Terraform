@@ -5,7 +5,7 @@ variable "env" {
 
 variable "aws_region" {
   type    = string
-  default = "ap-south-1"
+  default = "us-east-1"
 }
 
 variable "vpc_cidr" {
@@ -15,7 +15,7 @@ variable "vpc_cidr" {
 
 variable "instance_type" {
   type    = string
-  default = "t2.micro"
+  default = "t3.small"
 }
 
 variable "worker_count" {

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ stats.app.name }}</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3e;
+    --purple: #7c6ff7;
+    --teal: #1db88a;
+    --amber: #f5a623;
+    --red: #e85d5d;
+    --text: #e2e4f0;
+    --muted: #6b7099;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; padding: 24px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 38px; height: 38px; background: linear-gradient(135deg, var(--purple), var(--teal)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  h1 { font-size: 20px; font-weight: 600; color: var(--text); }
+  .subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .status-badge { display: flex; align-items: center; gap: 6px; background: rgba(29,184,138,0.12); border: 1px solid rgba(29,184,138,0.3); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: var(--teal); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .card-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .card-value { font-size: 22px; font-weight: 700; }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .purple { color: var(--purple); }
+  .teal   { color: var(--teal); }
+  .amber  { color: var(--amber); }
+  .red    { color: var(--red); }
+
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .info-item { }
+  .info-key { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .info-val { font-size: 14px; font-weight: 500; }
+
+  .bar-row { margin-bottom: 14px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+  .bar-label span:first-child { color: var(--muted); }
+  .bar-track { height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .bar-purple { background: var(--purple); }
+  .bar-teal   { background: var(--teal); }
+  .bar-amber  { background: var(--amber); }
+
+  .tag { display: inline-block; background: rgba(124,111,247,0.12); border: 1px solid rgba(124,111,247,0.25); color: var(--purple); border-radius: 6px; padding: 3px 9px; font-size: 11px; margin: 3px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  footer { text-align: center; margin-top: 28px; font-size: 12px; color: var(--muted); }
+  footer a { color: var(--purple); text-decoration: none; }
+
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } .info-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚀</div>
+    <div>
+      <h1>{{ stats.app.name }}</h1>
+      <div class="subtitle">K3s on AWS · Terraform · GitOps</div>
+    </div>
+  </div>
+  <div class="status-badge"><span class="dot"></span> Live · {{ stats.app.environment }}</div>
+</header>
+
+<!-- Stat cards -->
+<div class="grid">
+  <div class="card">
+    <div class="card-label">Pod hostname</div>
+    <div class="card-value purple" style="font-size:15px;word-break:break-all">{{ stats.pod.hostname }}</div>
+    <div class="card-sub">{{ stats.pod.ip }}</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Uptime</div>
+    <div class="card-value teal">{{ stats.app.uptime }}</div>
+    <div class="card-sub">since last deploy</div>
+  </div>
+  <div class="card">
+    <div class="card-label">CPU usage</div>
+    <div class="card-value amber">{{ stats.system.cpu_percent }}%</div>
+    <div class="card-sub">current load</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Memory</div>
+    <div class="card-value purple">{{ stats.system.memory_percent }}%</div>
+    <div class="card-sub">{{ stats.system.memory_used_mb }} / {{ stats.system.memory_total_mb }} MB</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <!-- Resource usage -->
+  <div class="section">
+    <div class="section-title">Resource usage</div>
+    <div class="bar-row">
+      <div class="bar-label"><span>CPU</span><span>{{ stats.system.cpu_percent }}%</span></div>
+      <div class="bar-track"><div class="bar-fill bar-amber" style="width:{{ stats.system.cpu_percent }}%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label"><span>Memory</span><span>{{ stats.system.memory_percent }}%</span></div>
+      <div class="bar-track"><div class="bar-fill bar-purple" style="width:{{ stats.system.memory_percent }}%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label"><span>Disk</span><span>{{ stats.system.disk_percent }}%</span></div>
+      <div class="bar-track"><div class="bar-fill bar-teal" style="width:{{ stats.system.disk_percent }}%"></div></div>
+    </div>
+  </div>
+
+  <!-- Pod info -->
+  <div class="section">
+    <div class="section-title">Pod info</div>
+    <div class="info-grid">
+      <div class="info-item"><div class="info-key">Namespace</div><div class="info-val">{{ stats.pod.namespace }}</div></div>
+      <div class="info-item"><div class="info-key">Node</div><div class="info-val">{{ stats.pod.node }}</div></div>
+      <div class="info-item"><div class="info-key">Environment</div><div class="info-val">{{ stats.app.environment }}</div></div>
+      <div class="info-item"><div class="info-key">Version</div><div class="info-val">{{ stats.app.version }}</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Infrastructure -->
+<div class="section">
+  <div class="section-title">Infrastructure</div>
+  <div class="info-grid">
+    <div class="info-item"><div class="info-key">Kubernetes</div><div class="info-val teal">{{ stats.cluster.k8s_version }}</div></div>
+    <div class="info-item"><div class="info-key">AWS Region</div><div class="info-val">{{ stats.cluster.region }}</div></div>
+    <div class="info-item"><div class="info-key">Provisioned by</div><div class="info-val">{{ stats.cluster.infra }}</div></div>
+    <div class="info-item"><div class="info-key">Python</div><div class="info-val">{{ stats.system.python_version }}</div></div>
+  </div>
+</div>
+
+<!-- Stack tags -->
+<div class="section">
+  <div class="section-title">Stack</div>
+  <span class="tag">Terraform</span>
+  <span class="tag">K3s</span>
+  <span class="tag">AWS EC2</span>
+  <span class="tag">GitHub Actions</span>
+  <span class="tag">OIDC Auth</span>
+  <span class="tag">Python Flask</span>
+  <span class="tag">Docker</span>
+  <span class="tag">ap-south-1</span>
+</div>
+
+<footer>
+  Built by Mohan &nbsp;·&nbsp;
+  <a href="/health">/health</a> &nbsp;·&nbsp;
+  <a href="/api/stats">/api/stats</a> &nbsp;·&nbsp;
+  Auto-refreshes every 10s
+</footer>
+
+<script>
+  setTimeout(() => location.reload(), 10000);
+</script>
+</body>
+</html>
