@@ -1,0 +1,9 @@
+env               = "dev"
+aws_region        = "ap-south-1"
+vpc_cidr          = "10.0.0.0/16"
+instance_type     = "t2.micro"
+worker_count      = 2
+github_org        = "your-github-username"       # replace
+github_repo       = "terraform-devops-portfolio"
+allowed_ssh_cidrs = ["YOUR.IP.ADD.RESS/32"]      # replace with your IP
+public_key_path   = "~/.ssh/k3s-key.pub"
