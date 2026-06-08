@@ -83,10 +83,10 @@ Access the app at `http://<master_public_ip>:30080`
 ### Destroy when done
 
 ```bash
-terraform destroy -var-file=terraform.tfvars.local
+# 1. cmd to collapse the infra:
+        terraform destroy -var-file=terraform.tfvars.local -auto-approve
 
-
-tfstate file purge:
+# 2. tfstate file purge:
 
 1. Empty the S3 bucket 
         aws s3 rm s3://tfstate-portfolio-mohan --recursive
