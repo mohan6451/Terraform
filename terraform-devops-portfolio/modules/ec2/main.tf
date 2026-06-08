@@ -1,13 +1,13 @@
 # ------------------------------------------------------------------
-# Fetch latest Amazon Linux 2023 AMI
+# Fetch latest Ubuntu 24.04 LTS AMI
 # ------------------------------------------------------------------
-data "aws_ami" "amazon_linux" {
+data "aws_ami" "ubuntu" {
   most_recent = true
-  owners      = ["amazon"]
+  owners      = ["099720109477"] # Canonical's official AWS account ID
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
   }
 
   filter {
@@ -29,33 +29,17 @@ resource "aws_key_pair" "k3s" {
 # K3s master node
 # ------------------------------------------------------------------
 resource "aws_instance" "master" {
-  ami                    = data.aws_ami.amazon_linux.id
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   subnet_id              = var.public_subnet_ids[0]
   vpc_security_group_ids = [var.master_sg_id]
   key_name               = aws_key_pair.k3s.key_name
   iam_instance_profile   = var.instance_profile_name
 
-  user_data = <<-EOF
-    #!/bin/bash
-    set -ex
-
-    # Install K3s server
-    curl -sfL https://get.k3s.io | sh -s - server \
-      --write-kubeconfig-mode 644 \
-      --tls-san $(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
-    # Wait for node-token to be generated
-    until [ -f /var/lib/rancher/k3s/server/node-token ]; do sleep 2; done
-
-    # Store token in SSM Parameter Store so workers can fetch it
-    TOKEN=$(cat /var/lib/rancher/k3s/server/node-token)
-    aws ssm put-parameter \
-      --region ${var.aws_region} \
-      --name "/${var.env}/k3s/node-token" \
-      --value "$TOKEN" \
-      --type SecureString \
-      --overwrite || true
-  EOF
+  user_data = templatefile("${path.module}/scripts/master.sh", {
+    aws_region = var.aws_region
+    env        = var.env
+  })
 
   root_block_device {
     volume_type = "gp3"
@@ -74,35 +58,21 @@ resource "aws_instance" "master" {
 # ------------------------------------------------------------------
 resource "aws_instance" "worker" {
   count                  = var.worker_count
-  ami                    = data.aws_ami.amazon_linux.id
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   subnet_id              = var.public_subnet_ids[count.index % length(var.public_subnet_ids)]
   vpc_security_group_ids = [var.worker_sg_id]
   key_name               = aws_key_pair.k3s.key_name
   iam_instance_profile   = var.instance_profile_name
 
-  # Workers wait for master to be ready before joining
+  # Workers wait for master EC2 to exist before booting
   depends_on = [aws_instance.master]
 
-  user_data = <<-EOF
-    #!/bin/bash
-    set -ex
-
-    # Wait until master has registered the token in SSM
-    until TOKEN=$(aws ssm get-parameter \
-      --region ${var.aws_region} \
-      --name "/${var.env}/k3s/node-token" \
-      --with-decryption \
-      --query "Parameter.Value" \
-      --output text 2>/dev/null); do
-      echo "Waiting for node-token..."
-      sleep 10
-    done
-
-    # Join the cluster
-    curl -sfL https://get.k3s.io | K3S_URL=https://${aws_instance.master.private_ip}:6443 \
-      K3S_TOKEN="$TOKEN" sh -
-  EOF
+  user_data = templatefile("${path.module}/scripts/worker.sh", {
+    aws_region        = var.aws_region
+    env               = var.env
+    master_private_ip = aws_instance.master.private_ip
+  })
 
   root_block_device {
     volume_type = "gp3"
@@ -117,7 +87,7 @@ resource "aws_instance" "worker" {
 }
 
 # ------------------------------------------------------------------
-# SSM Parameter Store — add permission to IAM role (see iam module)
+# SSM Parameter Store placeholder — master overwrites this at runtime
 # ------------------------------------------------------------------
 resource "aws_ssm_parameter" "k3s_token_placeholder" {
   name  = "/${var.env}/k3s/node-token"

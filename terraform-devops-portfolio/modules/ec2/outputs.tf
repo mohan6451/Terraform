@@ -13,5 +13,5 @@ output "worker_public_ips" {
 
 output "kubeconfig_command" {
   description = "Run this after apply to configure kubectl"
-  value       = "scp -i ~/.ssh/k3s-key ec2-user@${aws_instance.master.public_ip}:/etc/rancher/k3s/k3s.yaml ~/.kube/config && sed -i 's/127.0.0.1/${aws_instance.master.public_ip}/g' ~/.kube/config"
+  value       = "scp -i ~/.ssh/k3s-key ubuntu@${aws_instance.master.public_ip}:/etc/rancher/k3s/k3s.yaml ~/.kube/config && sed -i 's/127.0.0.1/${aws_instance.master.public_ip}/g' ~/.kube/config"
 }

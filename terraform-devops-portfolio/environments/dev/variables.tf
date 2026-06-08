@@ -15,7 +15,7 @@ variable "vpc_cidr" {
 
 variable "instance_type" {
   type    = string
-  default = "t3.small"
+  default = "c7i-flex.large"
 }
 
 variable "worker_count" {

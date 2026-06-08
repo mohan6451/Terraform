@@ -42,6 +42,32 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   tags = var.tags
 }
 
+# Allow K3s nodes to read/write the cluster join token from SSM Parameter Store
+resource "aws_iam_role_policy" "k3s_ssm_parameters" {
+  name = "${var.env}-k3s-ssm-parameters"
+  role = aws_iam_role.ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:PutParameter",
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        # Dynamically targets parameters in this environment path
+        Resource = "arn:aws:ssm:us-east-1:*:parameter/${var.env}/k3s/*"
+      }
+    ]
+  })
+}
+
+
+
+
+
 # ------------------------------------------------------------------
 # IAM role for GitHub Actions (OIDC — no static keys)
 # ------------------------------------------------------------------

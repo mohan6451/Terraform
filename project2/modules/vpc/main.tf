@@ -9,38 +9,52 @@ module "vpc" {
   public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
 
   enable_nat_gateway = true
-  enable_vpn_gateway = true
+  enable_vpn_gateway = false
 
   tags = {
-    Terraform = "true"
+    Terraform = "true"  
     Environment = "dev"
   }
 }
 
-#internet gateway
-resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "main"
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["679593333241"]
+
+  filter {
+    name   = "name"
+    values = ["ubuntu-minimal/images/hvm-ssd/ubuntu-focal-20.04-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
   }
 }
 
+resource "aws_ami_copy" "ubuntu_encrypted_ami" {
+  name              = "ubuntu-encrypted-ami"
+  description       = "An encrypted root ami based off ${data.aws_ami.ubuntu.id}"
+  source_ami_id     = data.aws_ami.ubuntu.id
+  source_ami_region = "us-east-1"
+  encrypted         = true
 
-resource "aws_route_table" "example" {
-  vpc_id = aws_vpc.example.id
+  tags = { Name = "ubuntu-encrypted-ami" }
+}
 
-  route {
-    cidr_block = "10.0.1.0/24"
-    gateway_id = aws_internet_gateway.example.id
+data "aws_ami" "encrypted-ami" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = [aws_ami_copy.ubuntu_encrypted_ami.id]
   }
 
-  route {
-    ipv6_cidr_block        = "::/0"
-    egress_only_gateway_id = aws_egress_only_internet_gateway.example.id
-  }
-
-  tags = {
-    Name = "example"
-  }
+  owners = ["self"]
 }

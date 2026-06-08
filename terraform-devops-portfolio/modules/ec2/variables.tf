@@ -7,9 +7,9 @@ variable "aws_region" {
 }
 
 variable "instance_type" {
-  description = "EC2 instance type — t2.micro is free tier eligible"
+  description = "EC2 instance type — c7i-flex.large is free tier eligible"
   type        = string
-  default     = "t3.small"
+  default     = "c7i-flex.large"
 }
 
 variable "worker_count" {

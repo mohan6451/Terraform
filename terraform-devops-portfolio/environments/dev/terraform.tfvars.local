@@ -5,5 +5,5 @@ instance_type     = "c7i-flex.large"
 worker_count      = 2
 github_org        = "https://github.com/mohan6451"       # replace
 github_repo       = "terraform-devops-portfolio"
-allowed_ssh_cidrs = ["0.0.0.0/32"]      # replace with your IP
+allowed_ssh_cidrs = ["122.164.82.104/32"]      # replace with your IP
 public_key_path   = "~/.ssh/k3s-key.pub"
