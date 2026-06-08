@@ -1,8 +1,7 @@
-# Terraform DevOps Portfolio — AWS + K3s + GitOps
+# Terraform DevOps Portfolio — AWS + K3s
 
 A production-pattern AWS infrastructure project built with Terraform, provisioning a
-K3s Kubernetes cluster on free-tier EC2 instances with a full GitOps CI/CD pipeline
-via GitHub Actions.
+K3s Kubernetes cluster on free-tier EC2 instances
 
 ## Architecture
 
