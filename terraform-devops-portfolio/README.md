@@ -16,14 +16,14 @@ GitHub merge ──►  terraform apply  ──►  AWS infrastructure
 | Layer | Resources |
 |---|---|
 | Networking | VPC, 2 public + 2 private subnets (2 AZs), IGW, route tables |
-| Compute | 1 K3s master + 2 K3s workers on `t2.micro` (free tier) |
+| Compute | 1 K3s master + 2 K3s workers on `c7i-flex.large` (free tier) |
 | Security | Least-privilege security groups, IAM instance profiles |
 | State | S3 (versioned, encrypted) + DynamoDB state lock |
 | CI/CD | GitHub Actions with OIDC auth (no static AWS keys) |
 
 ## Cost
 
-**$0/month** on AWS free tier (750 hours/month of t2.micro included).
+**$0/month** on AWS free tier (750 hours/month of c7i-flex.large included).
 
 > Always run `terraform destroy` after demos — EC2 instances run whether or not you are
 > using them.
@@ -84,42 +84,120 @@ Access the app at `http://<master_public_ip>:30080`
 
 ```bash
 terraform destroy -var-file=terraform.tfvars.local
+
+
+tfstate file purge:
+
+1. Empty the S3 bucket 
+        aws s3 rm s3://tfstate-portfolio-mohan --recursive
+
+    # Delete all versioned objects
+        aws s3api delete-objects \
+          --bucket tfstate-portfolio-mohan \
+          --delete "$(aws s3api list-object-versions \
+            --bucket tfstate-portfolio-mohan \
+            --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+            --output json)"
+    #Delete delete markers too
+        aws s3api delete-objects \
+          --bucket tfstate-portfolio-mohan \
+          --delete "$(aws s3api list-object-versions \
+            --bucket tfstate-portfolio-mohan \
+            --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' \
+            --output json)"
+    #Delete the S3 bucket
+
+        aws s3 rb s3://tfstate-portfolio-mohan --force
+
+2. Delete the DynamoDB table
+        aws dynamodb delete-table --table-name terraform-state-lock --region us-east-1
+
+3. Verify 
+        aws s3 ls | grep tfstate-portfolio-mohan
+        aws dynamodb list-tables --region us-east-1 | grep terraform-state-lock
+
 ```
 
-Or trigger the `Terraform Destroy` workflow from GitHub Actions → Actions tab.
 
-## CI/CD setup
-
-1. Fork/clone this repo to your GitHub account
-2. Run Step 1–3 above to get the `github_actions_role_arn` output
-3. Add GitHub secret: `AWS_ROLE_ARN` = the role ARN from output
-4. Push a branch and open a PR — the plan workflow runs automatically
-5. Merge to `main` — the apply workflow runs automatically
 
 ## Project structure
 
 ```
-├── bootstrap/               # Run once to create S3 + DynamoDB for state
+terraform-k3s-aws-infra/
+├── bootstrap/                  # run once — creates S3 + DynamoDB
+│   ├── main.tf
+│   ├── outputs.tf
+│   └── variables.tf
 ├── modules/
-│   ├── vpc/                 # VPC, subnets, IGW, route tables
-│   ├── ec2/                 # K3s master + worker EC2 instances
-│   ├── security-groups/     # Ingress/egress rules
-│   └── iam/                 # EC2 instance profile + GitHub OIDC role
-├── environments/
-│   ├── dev/                 # Dev environment (wires all modules)
-│   └── prod/                # Prod environment (larger instances)
-├── .github/workflows/
-│   ├── terraform-plan.yml   # Runs on PR
-│   ├── terraform-apply.yml  # Runs on merge to main
-│   └── terraform-destroy.yml # Manual trigger only
-├── k3s-manifests/
-│   └── sample-app/          # Nginx deployment to verify cluster
-├── DECISIONS.md             # Why each architectural choice was made
-└── README.md
+│   ├── vpc/                    # custom VPC, subnets, IGW
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   ├── security-group/         # inbound/outbound SG rules
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   ├── iam/                    # EC2 instance role + policies
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── ec2-k3s/                # EC2 with K3s bootstrap script
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── outputs.tf
+│       └── scripts        # K3s init script
+│            └── master.sh
+│            └── worker.sh
+├── main.tf                     # root — calls all modules
+├── variables.tf
+├── outputs.tf
+├── terraform.tfvars
+└── backend.tf                  # points to S3 remote state
+
+
 ```
 
-## Why K3s instead of EKS?
+IMDSv2 token-based request used;
 
-See [DECISIONS.md](./DECISIONS.md) for the full reasoning. Short answer: EKS costs
-$72/month just for the control plane. K3s provides identical Kubernetes primitives on
-free-tier EC2.
+Step 1: Request a Session TokenYour application or script must first issue an HTTP PUT request to a local, non-routable IP address (169.254.169.254). This request must include a header specifying how long you want the token to last (up to 6 hours).
+
+# Example: Requesting a token valid for 21600 seconds (6 hours)
+TOKEN=$(curl -X PUT "http://169.254.169" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
+Step 2: Use the Token to Fetch MetadataOnce you have the token string, you must include it inside a custom HTTP header (X-aws-ec2-metadata-token) in every subsequent metadata request.
+
+# Example: Using the token to safely fetch the instance's IAM security credentials
+curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169
+
+
+During the initial instance startup, the cloud-init package fetches network parameters from AWS and logs them. You can search these text files:Path: /var/log/cloud-init-output.log or /var/log/cloud-init.log
+
+
+
+aws: [ERROR]: An error occurred (AccessDeniedException) when calling the PutParameter operation: User: arn:aws:sts::070815351274:assumed-role/dev-k3s-ec2-role/i-07bf3551a46fb0a8e is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:us-east-1:070815351274:parameter/dev/k3s/node-token because no identity-based policy allows the ssm:PutParameter action
+2026-06-08 07:41:28,782 - cc_scripts_user.py[WARNING]: Failed to run module scripts_user (scripts in /var/lib/cloud/instance/scripts)
+2026-06-08 07:41:28,782 - log_util.py[WARNING]: Running module scripts_user (<module 'cloudinit.config.cc_scripts_user' from '/usr/lib/python3/dist-packages/cloudinit/config/cc_scripts_user.py'>) failed
+Cloud-init v. 26.1-0ubuntu1~24.04.1 finished at Mon, 08 Jun 2026 07:41:28 +0000. Datasource DataSourceEc2Local.  Up 43.38 seconds
+
+
+sol: Added ssm putParameter permission in iam.tf 
+
+--------------------------------------------------------------------------
+separated the shell script from the main.tf for handle free and fixed the syntax errors from shell script 
+--------------------------------------------------------------------------
+to check the worker node got token: aws ssm get-parameter --name "/dev/k3s/node-token" --with-decryption --region us-east-1
+
+----------------------------------
+# Check if K3s service exists and its status
+sudo systemctl status k3s
+
+# Check if the install script ran at all
+ls /etc/rancher/k3s/
+
+# Check the cloud-init user_data logs — this shows if bootstrap script ran
+sudo cat /var/log/cloud-init-output.log | tail -50
+
+# Watch K3s install in real time
+sudo journalctl -u k3s -f
+
+
