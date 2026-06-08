@@ -24,22 +24,6 @@ decision, not a capability preference.
 
 ---
 
-## OIDC over static IAM keys for GitHub Actions
-
-**Decision:** Use GitHub's OIDC provider with `sts:AssumeRoleWithWebIdentity` instead of
-storing `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as GitHub secrets.
-
-**Reasoning:** Static long-lived keys are a security liability. If a key leaks (accidental
-commit, secret scanning bypass, supply-chain attack on a GitHub Action), an attacker has
-persistent AWS access until someone manually rotates it. OIDC issues short-lived tokens
-scoped to a specific repository and workflow run — the token expires when the job ends and
-can never be used outside that context.
-
-**Trade-off:** OIDC requires an initial IAM setup that static keys don't. This is a
-one-time cost that pays back immediately in security posture.
-
----
-
 ## S3 + DynamoDB for remote state
 
 **Decision:** Store Terraform state in S3 with DynamoDB locking rather than local state files.
@@ -68,11 +52,18 @@ This is the standard pattern used in production Terraform codebases.
 more than one environment.
 
 ---
+## OIDC over static IAM keys for GitHub Actions
 
-## ap-south-1 (Mumbai) region
+**Decision:** Use GitHub's OIDC provider with `sts:AssumeRoleWithWebIdentity` instead of
+storing `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as GitHub secrets.
 
-**Decision:** Default region is `ap-south-1`.
+**Reasoning:** Static long-lived keys are a security liability. If a key leaks (accidental
+commit, secret scanning bypass, supply-chain attack on a GitHub Action), an attacker has
+persistent AWS access until someone manually rotates it. OIDC issues short-lived tokens
+scoped to a specific repository and workflow run — the token expires when the job ends and
+can never be used outside that context.
 
-**Reasoning:** Closest AWS region to Chennai, India. Lower latency for development and
-lower data transfer costs. Free-tier is region-agnostic so there is no cost reason to
-prefer `us-east-1`.
+**Trade-off:** OIDC requires an initial IAM setup that static keys don't. This is a
+one-time cost that pays back immediately in security posture.
+
+---
